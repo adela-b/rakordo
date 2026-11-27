@@ -7,16 +7,14 @@ const ctx = canvas.getContext('2d');
 
 // Configuration
 const CONFIG = {
-    particleCount: 300,
+    particleCount: 200,
     phases: {
-        fadeIn: 800,
-        scatter: 1200,
-        converge: 1400,
-        formR: 1800,
-        holdR: 1200,
-        morphRakordo: 2000,
-        holdRakordo: 1000,
-        fadeOut: 700
+        fadeIn: 450,
+        scatter: 550,
+        converge: 700,
+        formR: 1150,
+        holdR: 400,
+        fadeOut: 650
     }
 };
 
@@ -26,11 +24,11 @@ let width, height;
 let dpr = window.devicePixelRatio || 1;
 let currentPhase = 'fadeIn';
 let letterRPoints = [];
-let fullTextPoints = [];
+
 const BRAND_COLOR = '#00F397';
 const BRAND_RGB = { r: 0, g: 140, b: 138 };
 const R_FONT_SIZE = 240;
-const RAKORDO_FONT_SIZE = 140;
+
 let useBrandColor = false;
 
 // Resize canvas
@@ -54,7 +52,7 @@ class Particle {
         this.y = height * 0.1 + Math.random() * height * 0.8;
         this.targetX = this.x;
         this.targetY = this.y;
-        this.size = 5 + Math.random() * 8;
+        this.size = 2 + Math.random() * 2.5;
         this.baseSize = this.size;
         this.targetSize = this.size;
         this.alpha = 0;
@@ -131,12 +129,12 @@ class Particle {
                 drawX, drawY, 0,
                 drawX, drawY, this.size * 1.6
             );
-            outerGlow.addColorStop(0, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.4 * this.greenIntensity})`);
+            outerGlow.addColorStop(0, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.16 * this.greenIntensity})`);
             outerGlow.addColorStop(0.35, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${0.12 * this.greenIntensity})`);
             outerGlow.addColorStop(1, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0)`);
         
         ctx.beginPath();
-        ctx.arc(drawX, drawY, this.size * 2.8, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, this.size * 1.6, 0, Math.PI * 2);
         ctx.fillStyle = outerGlow;
         ctx.fill();
         
@@ -180,7 +178,7 @@ function getTextPoints(text, fontSize, maxPoints) {
 
     const imageData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
     const points = [];
-    const gap = Math.max(2, Math.floor(scaledFontSize / 10));
+    const gap = Math.max(2, Math.floor(scaledFontSize / 26));
 
     for (let y = 0; y < offCanvas.height; y += gap) {
         for (let x = 0; x < offCanvas.width; x += gap) {
@@ -285,7 +283,7 @@ function phaseFormR() {
         // Stronger attraction + lower friction for crisp locking into shape
         p.setTarget(point.x, point.y, 0.06, 0.82);
         p.targetAlpha = 1;
-        p.targetSize = 6;
+        p.targetSize = Math.max(1.4, Math.min(3, width * 0.006));
         p.floatActive = 0.02;
     });
 }
@@ -303,61 +301,6 @@ function setBrandColor(active) {
     useBrandColor = active;
     particles.forEach(p => {
         p.greenIntensity = active ? 1 : 0.5 + Math.random() * 0.5;
-    });
-}
-
-function phaseSlideRakordo() {
-    // Legacy - not used. Kept for reference.
-}
-
-function phaseMorphSlideRakordo() {
-    // Single centered morph with a slight vertical slide during the morph
-    fullTextPoints = getTextPoints('Rakordo', RAKORDO_FONT_SIZE, CONFIG.particleCount);
-    if (fullTextPoints.length === 0) return;
-    fullTextPoints = centerPoints(fullTextPoints);
-
-    const slideDistance = Math.min(height * 0.12, 140);
-    // First set targets slightly below final positions
-    particles.forEach((p, i) => {
-        const point = fullTextPoints[i % fullTextPoints.length];
-        p.setTarget(point.x, point.y + slideDistance, 0.02, 0.9);
-        p.targetAlpha = 1;
-        p.targetSize = 5 + Math.random() * 3;
-        p.floatActive = 0.06;
-    });
-
-    // After half the morph duration, pull them up to final positions for a single slide
-    const half = Math.max(200, Math.floor(CONFIG.phases.morphRakordo / 2));
-    setTimeout(() => {
-        particles.forEach((p, i) => {
-            const point = fullTextPoints[i % fullTextPoints.length];
-            p.setTarget(point.x, point.y, 0.06, 0.82);
-        });
-    }, half);
-}
-
-function phaseHoldRakordo() {
-    particles.forEach(p => {
-        p.attraction = 0.018;
-        p.friction = 0.86;
-        p.targetAlpha = 1;
-        p.floatActive = 0.05;
-    });
-}
-
-function phaseFadeOut() {
-    particles.forEach((p, i) => {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 60 + Math.random() * 120;
-        p.setTarget(
-            p.x + Math.cos(angle) * dist,
-            p.y - 40 + Math.sin(angle) * dist * 0.4,
-            0.005,
-            0.96
-        );
-        p.targetAlpha = 0;
-        p.targetSize = p.baseSize * 0.2;
-        p.floatActive = 0;
     });
 }
 
@@ -409,29 +352,36 @@ async function runSequence() {
     phaseHoldR();
     await wait(phases.holdR);
     
-    // Phase 6: Single centered morph+slide to Rakordo
-    currentPhase = 'morphRakordo';
-    phaseMorphSlideRakordo();
-    await wait(phases.morphRakordo);
-    
-    // Phase 8: Hold "Rakordo"
-    currentPhase = 'holdRakordo';
-    phaseHoldRakordo();
-    await wait(phases.holdRakordo);
-    
-    // Phase 8: Fade out
-    currentPhase = 'fadeOut';
-    phaseFadeOut();
-    await wait(phases.fadeOut);
-    
-    // Transition to hero section
-    cancelAnimationFrame(animationFrame);
-    canvas.style.transition = 'opacity 0.6s ease';
+    // Crossfade the particle R into a crisp typographic wordmark.
+    currentPhase = 'wordmark';
+    const wordmark = document.createElement('div');
+    wordmark.textContent = 'Rakordo';
+    wordmark.setAttribute('aria-hidden', 'true');
+    Object.assign(wordmark.style, {
+        position: 'fixed', inset: '0', zIndex: '101',
+        display: 'grid', placeItems: 'center', pointerEvents: 'none',
+        fontFamily: 'var(--font-satoshi)', fontWeight: '700',
+        fontSize: 'clamp(48px, 9vw, 104px)', letterSpacing: '-0.045em',
+        color: 'var(--color-secondary)', opacity: '0',
+        filter: 'blur(8px)', transform: 'scale(0.97)',
+        transition: 'opacity 650ms ease, filter 650ms ease, transform 650ms ease'
+    });
+    document.body.appendChild(wordmark);
+    canvas.style.transition = 'opacity 450ms ease';
     canvas.style.opacity = '0';
-    canvas.addEventListener('transitionend', () => {
-        canvas.style.display = 'none';
-        showHero();
-    }, { once: true });
+    await wait(220);
+    wordmark.style.opacity = '1';
+    wordmark.style.filter = 'blur(0)';
+    wordmark.style.transform = 'scale(1)';
+    await wait(450);
+    cancelAnimationFrame(animationFrame);
+    canvas.style.display = 'none';
+    await wait(650);
+    wordmark.style.opacity = '0';
+    wordmark.style.transform = 'scale(1.02)';
+    await wait(phases.fadeOut);
+    wordmark.remove();
+    showHero();
 }
 
 // Show hero section with staggered reveal using CSS transitions
@@ -467,12 +417,17 @@ function wait(ms) {
 
 // Initialize everything
 function init() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        canvas.style.display = 'none';
+        showHero();
+        return;
+    }
     resizeCanvas();
     initParticles();
     
     // Pre-calculate text points
     letterRPoints = getTextPoints('R', R_FONT_SIZE, CONFIG.particleCount);
-    fullTextPoints = getTextPoints('Rakordo', RAKORDO_FONT_SIZE, CONFIG.particleCount);
+
     
     // Start animation loop
     animationFrame = requestAnimationFrame(animate);
@@ -484,13 +439,13 @@ function init() {
     window.addEventListener('resize', () => {
         resizeCanvas();
         letterRPoints = getTextPoints('R', R_FONT_SIZE, CONFIG.particleCount);
-        fullTextPoints = getTextPoints('Rakordo', RAKORDO_FONT_SIZE, CONFIG.particleCount);
+
     });
 }
 
 // Wait for fonts to load then start
 if (document.fonts) {
-    document.fonts.ready.then(init);
+    Promise.race([document.fonts.load('700 100px Satoshi'), wait(1500)]).then(init, init);
 } else {
     window.addEventListener('load', init);
 }
